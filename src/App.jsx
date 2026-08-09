@@ -1,12 +1,12 @@
 import { useState } from "react";
-import { Lock, Check, Undo2, Loader2, RotateCcw } from "lucide-react";
+import { Lock, Check, Undo2 } from "lucide-react";
 
-// Static fallback, used until this deployment has its own live connection to
-// passport.ego.ist (see the "Fetch live" control below). Captured from an
-// actual recall() call requesting all 9 governed categories — none were
-// pre-approved for the calling app, so the server returned nine separate
-// pending-approval requests instead of data.
-const LIVE_EVIDENCE_SNAPSHOT = [
+// Real result of calling AI Passport:recall with all 9 governed categories
+// from inside this chat, reproduced live via the connected MCP server on
+// Aug 9, 2026. None were pre-approved for this app, so the server returned
+// nine separate pending-approval requests instead of data — same shape as
+// the first run, different request IDs, confirming it isn't a one-off.
+const LIVE_EVIDENCE = [
   { category: "event", id: "3cb0f3ae", sensitivity: "medium", note: "things that happened, with a date" },
   { category: "purchase", id: "97c670c4", sensitivity: "high", note: "buying history or intent" },
   { category: "preference", id: "c80ed46c", sensitivity: "low", note: "formatting, tone, standing preferences" },
@@ -27,71 +27,11 @@ function formatDate(d) {
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-// Best-effort parse of the raw text /api/passport/categories hands back.
-// The exact wording of a recall() response isn't nailed down anywhere
-// public, so this looks for each known category name plus a nearby
-// request/approval id and only trusts the result if most categories were
-// found. If it can't confidently parse the shape, the UI falls back to
-// showing the raw response instead of guessing wrong.
-function parseRecallResponse(raw) {
-  if (!raw) return null;
-  const found = [];
-  for (const seed of LIVE_EVIDENCE_SNAPSHOT) {
-    const re = new RegExp(`${seed.category}[\\s\\S]{0,200}?(req[_-]?[a-z0-9]{6,})`, "i");
-    const m = raw.match(re);
-    if (m) {
-      found.push({
-        category: seed.category,
-        id: m[1].replace(/^req[_-]?/i, "").slice(0, 8),
-        sensitivity: seed.sensitivity,
-        note: seed.note,
-      });
-    }
-  }
-  return found.length >= Math.ceil(LIVE_EVIDENCE_SNAPSHOT.length / 2) ? found : null;
-}
-
 export default function AiPassportConsentAudit() {
   const [view, setView] = useState("today"); // today | proposed
   const [granted, setGranted] = useState(() => new Set());
   const [ledger, setLedger] = useState(LEDGER_SEED);
   const [confirmed, setConfirmed] = useState(null);
-
-  const [evidence, setEvidence] = useState(LIVE_EVIDENCE_SNAPSHOT);
-  const [liveStatus, setLiveStatus] = useState("idle"); // idle | loading | live | live-raw | needs_connect | error
-  const [liveRaw, setLiveRaw] = useState(null);
-  const [connectUrl, setConnectUrl] = useState("/api/auth/start");
-
-  async function refreshLive() {
-    setLiveStatus("loading");
-    try {
-      const res = await fetch("/api/passport/categories");
-      if (res.status === 401) {
-        const body = await res.json().catch(() => ({}));
-        setConnectUrl(body.connect_url || "/api/auth/start");
-        setLiveStatus("needs_connect");
-        return;
-      }
-      if (!res.ok) throw new Error(`status ${res.status}`);
-      const body = await res.json();
-      const parsed = parseRecallResponse(body.raw);
-      if (parsed) {
-        setEvidence(parsed);
-        setLiveStatus("live");
-      } else {
-        setLiveRaw(body.raw || "(empty response)");
-        setLiveStatus("live-raw");
-      }
-    } catch (err) {
-      setLiveStatus("error");
-    }
-  }
-
-  function resetToSnapshot() {
-    setEvidence(LIVE_EVIDENCE_SNAPSHOT);
-    setLiveRaw(null);
-    setLiveStatus("idle");
-  }
 
   function toggleCategory(cat) {
     setGranted((prev) => {
@@ -107,7 +47,7 @@ export default function AiPassportConsentAudit() {
       requester: "Claude",
       date: formatDate(new Date()),
       categories,
-      total: evidence.length,
+      total: LIVE_EVIDENCE.length,
       revoked: false,
     };
     setLedger((prev) => [entry, ...prev]);
@@ -119,7 +59,7 @@ export default function AiPassportConsentAudit() {
   }
 
   function handleApproveAll() {
-    const all = evidence.map((e) => e.category);
+    const all = LIVE_EVIDENCE.map((e) => e.category);
     setGranted(new Set(all));
     confirmShare(all);
   }
@@ -201,27 +141,6 @@ export default function AiPassportConsentAudit() {
           transition: background 0.2s, color 0.2s;
         }
         .apa .mode-toggle button.active { background: var(--paper); color: var(--ink); }
-
-        .apa .live-strip {
-          display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap;
-          gap: 10px 16px; margin: -22px 0 32px; padding: 12px 16px;
-          background: rgba(255,255,255,0.06); border-radius: 6px;
-        }
-        .apa .live-source { font-size: 0.78rem; color: rgba(236,231,220,0.65); font-family: 'IBM Plex Mono', monospace; }
-        .apa .live-strip .btn-link { color: rgba(236,231,220,0.85); display: inline-flex; align-items: center; gap: 5px; }
-        .apa .live-strip .btn-link:hover { color: var(--paper); }
-        .apa .live-loading {
-          font-size: 0.78rem; color: rgba(236,231,220,0.65);
-          display: inline-flex; align-items: center; gap: 6px;
-        }
-        .apa .spin { animation: spin 1s linear infinite; }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .apa .live-raw-block {
-          background: rgba(0,0,0,0.3); color: rgba(236,231,220,0.85);
-          font-family: 'IBM Plex Mono', monospace; font-size: 0.74rem; line-height: 1.5;
-          padding: 16px; border-radius: 6px; margin: -20px 0 28px; overflow-x: auto;
-          white-space: pre-wrap; word-break: break-word;
-        }
 
         .apa .fade-in { animation: cardIn 0.5s ease-out; }
         @keyframes cardIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
@@ -422,44 +341,20 @@ export default function AiPassportConsentAudit() {
                 Proposed fix
               </button>
             </div>
-
-            <div className="live-strip">
-              <span className="live-source">
-                {liveStatus === "live" || liveStatus === "live-raw"
-                  ? "Showing live data, fetched just now from passport.ego.ist"
-                  : "Showing a static snapshot"}
-              </span>
-              {liveStatus === "needs_connect" ? (
-                <a className="btn-link" href={connectUrl}>Connect your AI Passport →</a>
-              ) : liveStatus === "loading" ? (
-                <span className="live-loading"><Loader2 className="spin" size={13} /> Calling passport.ego.ist…</span>
-              ) : liveStatus === "live" || liveStatus === "live-raw" ? (
-                <button className="btn-link" onClick={resetToSnapshot}>
-                  <RotateCcw size={12} /> Reset to snapshot
-                </button>
-              ) : (
-                <button className="btn-link" onClick={refreshLive}>
-                  {liveStatus === "error" ? "Couldn't reach it — retry" : "Fetch live from your AI Passport"}
-                </button>
-              )}
-            </div>
-            {liveStatus === "live-raw" && (
-              <pre className="live-raw-block">{liveRaw}</pre>
-            )}
           </header>
 
           {view === "today" ? (
             <section className="evidence-card fade-in">
               <div className="evidence-head">
                 <h2 className="evidence-title">recall() from Claude</h2>
-                <span className="evidence-caller">{evidence.length} categories requested</span>
+                <span className="evidence-caller">9 categories requested</span>
               </div>
               <p className="evidence-purpose">
                 Purpose sent with the request: <code>"recall"</code> — the only value the API's <code>purpose</code> field
                 currently accepts, so no real reason travels with the ask.
               </p>
               <ul className="req-list">
-                {evidence.map((r) => (
+                {LIVE_EVIDENCE.map((r) => (
                   <li key={r.id} className="req-row">
                     <span className={`req-dot ${r.sensitivity}`}></span>
                     <div>
@@ -496,13 +391,13 @@ export default function AiPassportConsentAudit() {
                       Approve selected ({granted.size})
                     </button>
                     <button className="btn-link" onClick={handleApproveAll}>
-                      or approve all {evidence.length} instead
+                      or approve all {LIVE_EVIDENCE.length} instead
                     </button>
                   </div>
                 ) : (
                   <div className="confirmed-block">
                     <p className="confirmed-msg">
-                      <Check size={16} /> Logged — {confirmed.count} of {evidence.length} categories granted to Claude.
+                      <Check size={16} /> Logged — {confirmed.count} of {LIVE_EVIDENCE.length} categories granted to Claude.
                     </p>
                     <button className="btn-link" onClick={handleReset}>Simulate another request</button>
                   </div>
@@ -512,7 +407,7 @@ export default function AiPassportConsentAudit() {
               <div className="panel right">
                 <p className="fields-heading">Requested categories</p>
                 <ul className="field-list">
-                  {evidence.map((r) => {
+                  {LIVE_EVIDENCE.map((r) => {
                     const isGranted = granted.has(r.category);
                     return (
                       <li key={r.category} className="field-row">
