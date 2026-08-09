@@ -18,7 +18,7 @@
 import crypto from "node:crypto";
 import { base64url } from "../_lib/http.js";
 
-const MCP_URL = "https://passport.ego.ist/mcp";
+const MCP_URL = " https://ego.ist/api/cards/mcp";
 
 async function discover() {
   const origin = new URL(MCP_URL).origin;
