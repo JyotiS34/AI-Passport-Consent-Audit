@@ -157,7 +157,7 @@ The project deploys directly to Vercel with zero configuration:
 2. Import the repository in [Vercel](https://vercel.com)
 3. Vercel auto-detects Next.js and deploys
 
-> **Note:** Make sure the **Output Directory** in Vercel project settings is left empty (auto-detected). A `vercel.json` is included to ensure correct output directory mapping.
+> **Note:** Make sure the **Output Directory** in Vercel project settings is left empty (auto-detected) or change to Next.js manually.
 
 ### Other Platforms
 
