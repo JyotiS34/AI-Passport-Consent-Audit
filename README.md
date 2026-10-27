@@ -212,7 +212,8 @@ Sensitivity combinations that trigger bonus exposure:
 - **Accessibility**: Semantic HTML, ARIA labels, keyboard navigation, focus indicators
 - **Responsive**: Mobile-first design, works on all screen sizes
 - **Animations**: Framer Motion with `prefers-reduced-motion` support
-- **Lint**: Zero errors
+
+  **Built with Claude.ai & Z.ai**
 
 ---
 
