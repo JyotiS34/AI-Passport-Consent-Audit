@@ -213,7 +213,7 @@ Sensitivity combinations that trigger bonus exposure:
 - **Responsive**: Mobile-first design, works on all screen sizes
 - **Animations**: Framer Motion with `prefers-reduced-motion` support
 
-  **Built with Claude.ai & Z.ai**
+  **Built with Claude.ai, Z.ai & Cursor Agent**
 
 ---
 
